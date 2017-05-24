@@ -1,9 +1,10 @@
 package com.example
 
-import java.lang.Math.{abs, min}
+import java.lang.Math.{ abs, min }
 import java.net.URL
+import java.util.Calendar
 
-import com.danielasfregola.twitter4s.entities.{Tweet, User, UserMention}
+import com.danielasfregola.twitter4s.entities.{ Tweet, User, UserMention }
 import scopt._
 import com.danielasfregola.twitter4s.{
   TwitterRestClient,
@@ -12,18 +13,18 @@ import com.danielasfregola.twitter4s.{
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 import com.example.Config._
 import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
+import org.joda.time.format.{ DateTimeFormat, DateTimeFormatter }
 
 case class Config(
-    tweetsLimit: Int = defaultLimit,
-    screenName: String = "",
-    showHelp: Boolean = false,
-    tzAutoAdjustment: Boolean = true,
-    friendsAnalysis: Boolean = false,
-    utcOffset: Option[Long] = None
+  tweetsLimit: Int = defaultLimit,
+  screenName: String = "",
+  showHelp: Boolean = false,
+  tzAutoAdjustment: Boolean = true,
+  friendsAnalysis: Boolean = false,
+  utcOffset: Option[Long] = None
 )
 object Config {
   val defaultLimit = 1000
@@ -65,11 +66,11 @@ object Functions {
   }
 
   def getTweets(
-      name: String,
-      tweetsNumAtLeast: Int,
-      client: TwitterRestClient,
-      maxId: Option[Long] = None,
-      acc: Seq[Tweet] = Nil
+    name: String,
+    tweetsNumAtLeast: Int,
+    client: TwitterRestClient,
+    maxId: Option[Long] = None,
+    acc: Seq[Tweet] = Nil
   ): Future[Seq[Tweet]] = {
     if (acc.size < tweetsNumAtLeast) {
       val limit = min(200, abs(tweetsNumAtLeast - acc.size))
@@ -106,16 +107,18 @@ object Functions {
       println(s"[+] statuses count : ${user.data.statuses_count}")
 
       val tweetsNum = Math.min(cfg.tweetsLimit, user.data.statuses_count)
-      println(s"[+] Retrieving last ${tweetsNum} tweets...")
+      println(s"[+] Retrieving last $tweetsNum tweets...")
       val tweetsFuture = getTweets(cfg.screenName, tweetsNum, restClient)
       tweetsFuture.map { tweets =>
-        val lastCreatedAt  = new DateTime(tweets.last.created_at.getTime)
+        val lastCreatedAt = new DateTime(tweets.last.created_at.getTime)
         val firstCreatedAt = new DateTime(tweets.head.created_at.getTime)
-        val format         = DateTimeFormat.shortDateTime()
+        val format = DateTimeFormat.shortDateTime()
         println(
-          s"[+] Downloaded ${tweets.size} tweets from ${lastCreatedAt.toString(
-            format
-          )} to ${firstCreatedAt.toString(format)}"
+          s"[+] Downloaded ${tweets.size} tweets from ${
+            lastCreatedAt.toString(
+              format
+            )
+          } to ${firstCreatedAt.toString(format)}"
         )
         (user, tweets)
       }
@@ -124,12 +127,15 @@ object Functions {
     cfg.utcOffset.foreach(offset =>
       println(s"Applying timezone offset $offset"))
 
-    var retweetedUsers   = Vector.empty[User]
-    var mentionedUsers   = Vector.empty[UserMention]
+    var retweetedUsers = Vector.empty[User]
+    var mentionedUsers = Vector.empty[UserMention]
     var mentionedDomains = Vector.empty[String]
+    var hoursOfDay = Map.empty[Int, Int]
+    var daysOfWeek = Map.empty[Int, Int]
 
     val (_, tweets) = Await.result(future, 1.minute)
-    tweets.foreach { tweet =>
+
+    def processTweet(tweet: Tweet): Unit = {
       tweet.retweeted_status.foreach { retweet =>
         retweet.user.foreach(user => retweetedUsers :+= user)
       }
@@ -148,7 +154,15 @@ object Functions {
         else Some(dom)
       }
       mentionedDomains ++= domains
+
+      val dateTime = new DateTime(tweet.created_at.getTime)
+      val hour = dateTime.getHourOfDay
+      val dayOfWeek = dateTime.dayOfWeek().get()
+      hoursOfDay += (hour -> (hoursOfDay.getOrElse(hour, 0) + 1))
+      daysOfWeek += (dayOfWeek -> (daysOfWeek.getOrElse(dayOfWeek, 0) + 1))
     }
+
+    tweets foreach processTweet
 
     print("[+] Most Retweeted Users: ")
     val mostRetweetedUsers = retweetedUsers
@@ -184,6 +198,59 @@ object Functions {
       }
       .take(10)
     println(mostMentionedDomains.mkString(", "))
+
+    printCharts(hoursOfDay, "Activity per hour (distribution)")
+    printCharts(daysOfWeek, "Activity per week day (distribution)")
+  }
+
+  def getMean(values: Seq[Int]): Double =
+    values.sum / values.length
+
+  def getMedian(values: Seq[Int]): Double = {
+    val middle = values.length / 2
+    if (values.length % 2 == 1)
+      values(middle)
+    else {
+      (values(middle - 1) + values(middle)) / 2.0
+    }
+  }
+
+  def printCharts(data: Map[Int, Int], title: String): Unit = {
+    val sorted = data.toList.sorted
+    val mean = getMean(data.values.toSeq)
+    val median = getMedian(data.values.toSeq)
+    val lineWidth = 50
+    val lineMean = getMean(1 to lineWidth)
+    println(s"mean $mean median $median")
+
+    println(title)
+    println((1 to lineWidth).map(_ => "#").mkString)
+
+    sorted.foreach {
+      case (key, value) =>
+        val valueColor =
+          if (value <= mean * 0.66) "\033[32m"
+          else if (value <= mean * 1.33) "\033[33m"
+          else "\033[31m"
+
+        val valueInLineUnits =
+          Math.ceil((value / sorted.head._2.toDouble) * lineWidth).toInt
+
+        val coloredLine = (1 to lineWidth)
+          .map { i =>
+            if (i >= valueInLineUnits)
+              " "
+            else if (i <= lineMean * 0.66)
+              "\033[42m \033[0m"
+            else if (i <= lineMean * 1.33)
+              "\033[43m \033[0m"
+            else if (i <= lineMean * 1.6)
+              "\033[41m \033[0m"
+            else " "
+          }
+          .mkString("")
+        printf(s"$coloredLine $valueColor%3d\033[0m     %02d:00\n", value, key)
+    }
   }
 }
 
