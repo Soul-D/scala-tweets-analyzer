@@ -1,6 +1,7 @@
 package com.example
 
 import java.lang.Math.{abs, min}
+import java.net.URL
 
 import com.danielasfregola.twitter4s.entities.{Tweet, User, UserMention}
 import scopt._
@@ -123,11 +124,11 @@ object Functions {
     cfg.utcOffset.foreach(offset =>
       println(s"Applying timezone offset $offset"))
 
-    val (user, tweets) = Await.result(future, 1.minute)
+    var retweetedUsers   = Vector.empty[User]
+    var mentionedUsers   = Vector.empty[UserMention]
+    var mentionedDomains = Vector.empty[String]
 
-    var retweetedUsers = Vector.empty[User]
-    var mentionedUsers = Vector.empty[UserMention]
-
+    val (_, tweets) = Await.result(future, 1.minute)
     tweets.foreach { tweet =>
       tweet.retweeted_status.foreach { retweet =>
         retweet.user.foreach(user => retweetedUsers :+= user)
@@ -136,6 +137,17 @@ object Functions {
         .map(_.user_mentions)
         .getOrElse(Nil)
         .foreach(userMention => mentionedUsers :+= userMention)
+
+      val urls = tweet.entities.map(_.urls).getOrElse(Nil)
+      val domains = urls.flatMap { url =>
+        var dom = new URL(url.expanded_url).getHost
+        if (dom.startsWith("www."))
+          dom = dom.drop(4)
+
+        if (dom == "twitter.com") None
+        else Some(dom)
+      }
+      mentionedDomains ++= domains
     }
 
     print("[+] Most Retweeted Users: ")
@@ -161,6 +173,17 @@ object Functions {
       .map { case (screenName, _) => screenName }
       .take(10)
     println(mostMentionedUsers.mkString(", "))
+
+    print("[+] Most Referenced Domains:")
+    val mostMentionedDomains = mentionedDomains
+      .groupBy(identity)
+      .map { case (domain, domains) => (domain, domains.size) }
+      .toList
+      .sortBy {
+        case (_, count) => -count
+      }
+      .take(10)
+    println(mostMentionedDomains.mkString(", "))
   }
 }
 
