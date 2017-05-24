@@ -9,13 +9,9 @@ lazy val root = (project in file(".")).settings(
     )),
   name := "scala-tweets-analyzer",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka"   %% "akka-http"         % akkaHttpVersion,
-    "com.typesafe.akka"   %% "akka-http-xml"     % akkaHttpVersion,
-    "com.typesafe.akka"   %% "akka-stream"       % akkaVersion,
-    "com.typesafe.akka"   %% "akka-http-testkit" % akkaHttpVersion % Test,
-    "org.scalatest"       %% "scalatest"         % "3.0.1" % Test,
-    "com.github.scopt"    %% "scopt"             % "3.5.0",
-    "com.danielasfregola" %% "twitter4s"         % "5.1"
+    "org.scalatest"       %% "scalatest" % "3.0.1" % Test,
+    "com.github.scopt"    %% "scopt"     % "3.5.0",
+    "com.danielasfregola" %% "twitter4s" % "5.1"
   ),
   resolvers += Resolver.sonatypeRepo("relases"),
   fork in Test := true,

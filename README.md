@@ -1,2 +1,4 @@
 # scala-tweets-analyzer
-Analyze tweets by user name. Written in plain scala using twitter4s
+Simple scala script to analyze tweets activity for a given user.
+
+Written in plain scala using [Twitter4s](https://github.com/DanielaSfregola/twitter4s).
