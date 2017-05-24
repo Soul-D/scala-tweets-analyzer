@@ -1,8 +1,8 @@
 package com.example
 
-import java.lang.Math.{ abs, min }
+import java.lang.Math.{abs, min}
 
-import com.danielasfregola.twitter4s.entities.{ Tweet, User, UserMention }
+import com.danielasfregola.twitter4s.entities.{Tweet, User, UserMention}
 import scopt._
 import com.danielasfregola.twitter4s.{
   TwitterRestClient,
@@ -11,16 +11,18 @@ import com.danielasfregola.twitter4s.{
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{Await, Future}
 import com.example.Config._
+import org.joda.time.DateTime
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
 case class Config(
-  tweetsLimit: Int = defaultLimit,
-  screenName: String = "",
-  showHelp: Boolean = false,
-  tzAutoAdjustment: Boolean = true,
-  friendsAnalysis: Boolean = false,
-  utcOffset: Option[Long] = None
+    tweetsLimit: Int = defaultLimit,
+    screenName: String = "",
+    showHelp: Boolean = false,
+    tzAutoAdjustment: Boolean = true,
+    friendsAnalysis: Boolean = false,
+    utcOffset: Option[Long] = None
 )
 object Config {
   val defaultLimit = 1000
@@ -62,11 +64,11 @@ object Functions {
   }
 
   def getTweets(
-    name: String,
-    tweetsNumAtLeast: Int,
-    client: TwitterRestClient,
-    maxId: Option[Long] = None,
-    acc: Seq[Tweet] = Nil
+      name: String,
+      tweetsNumAtLeast: Int,
+      client: TwitterRestClient,
+      maxId: Option[Long] = None,
+      acc: Seq[Tweet] = Nil
   ): Future[Seq[Tweet]] = {
     if (acc.size < tweetsNumAtLeast) {
       val limit = min(200, abs(tweetsNumAtLeast - acc.size))
@@ -92,26 +94,36 @@ object Functions {
 
   def start(cfg: Config): Unit = {
     val restClient = TwitterRestClient()
-    val streamingClient = TwitterStreamingClient()
 
-    println(s"Getting ${cfg.screenName} account data...")
+    println(s"Getting @${cfg.screenName} account data...")
     val userFuture = restClient.user(cfg.screenName)
     val future = userFuture.flatMap { user =>
+      println(s"[+] lang           : ${user.data.lang}")
+      println(s"[+] geo_enabled    : ${user.data.geo_enabled}")
+      println(s"[+] time_zone      : ${user.data.time_zone}")
+      println(s"[+] utc_offset     : ${user.data.utc_offset}")
+      println(s"[+] statuses count : ${user.data.statuses_count}")
+
       val tweetsNum = Math.min(cfg.tweetsLimit, user.data.statuses_count)
+      println(s"[+] Retrieving last ${tweetsNum} tweets...")
       val tweetsFuture = getTweets(cfg.screenName, tweetsNum, restClient)
-      tweetsFuture.map(user -> _)
+      tweetsFuture.map { tweets =>
+        val lastCreatedAt  = new DateTime(tweets.last.created_at.getTime)
+        val firstCreatedAt = new DateTime(tweets.head.created_at.getTime)
+        val format         = DateTimeFormat.shortDateTime()
+        println(
+          s"[+] Downloaded ${tweets.size} tweets from ${lastCreatedAt.toString(
+            format
+          )} to ${firstCreatedAt.toString(format)}"
+        )
+        (user, tweets)
+      }
     }
 
     cfg.utcOffset.foreach(offset =>
       println(s"Applying timezone offset $offset"))
 
     val (user, tweets) = Await.result(future, 1.minute)
-    //      println(s"lang: ${user.data.lang}")
-    //      println(s"geo_enabled: ${user.data.geo_enabled}")
-    //      println(s"time_zone: ${user.data.time_zone}")
-    //      println(s"utc_offset: ${user.data.utc_offset}")
-
-    println(s"statuses count: ${user.data.statuses_count}\n")
 
     var retweetedUsers = Vector.empty[User]
     var mentionedUsers = Vector.empty[UserMention]
@@ -126,7 +138,7 @@ object Functions {
         .foreach(userMention => mentionedUsers :+= userMention)
     }
 
-    println("most retweeted users: ")
+    print("[+] Most Retweeted Users: ")
     val mostRetweetedUsers = retweetedUsers
       .groupBy(_.id)
       .map {
@@ -134,10 +146,11 @@ object Functions {
       }
       .toList
       .sortBy { case (_, count) => -count }
+      .map { case (screenName, _) => screenName }
       .take(10)
-    mostRetweetedUsers.foreach(println)
+    println(mostRetweetedUsers.mkString(", "))
 
-    println("most mentioned users:")
+    print("[+] Most Mentioned Users: ")
     val mostMentionedUsers = mentionedUsers
       .groupBy(_.id)
       .map {
@@ -145,8 +158,9 @@ object Functions {
       }
       .toList
       .sortBy { case (_, count) => -count }
+      .map { case (screenName, _) => screenName }
       .take(10)
-    mostMentionedUsers.foreach(println)
+    println(mostMentionedUsers.mkString(", "))
   }
 }
 
