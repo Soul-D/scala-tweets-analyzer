@@ -17,5 +17,7 @@ lazy val root = (project in file(".")).settings(
     "com.github.scopt"    %% "scopt"             % "3.5.0",
     "com.danielasfregola" %% "twitter4s"         % "5.1"
   ),
-  resolvers += Resolver.sonatypeRepo("relases")
+  resolvers += Resolver.sonatypeRepo("relases"),
+  fork in Test := true,
+  fork in Compile := true
 )
