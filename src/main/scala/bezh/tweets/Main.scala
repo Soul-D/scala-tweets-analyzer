@@ -1,6 +1,6 @@
-package com.example
+package bezh.tweets
 
-import com.example.Config._
+import Config._
 
 object Main {
   import Functions._

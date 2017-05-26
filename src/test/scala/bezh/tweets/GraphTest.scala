@@ -1,5 +1,7 @@
-package com.example
+package bezh.tweets
 
+import bezh.Functions.ChartTimeUnit.HourOfDay
+import bezh.tweets.Functions.ChartTimeUnit.HourOfDay
 import com.example.Functions.ChartTimeUnit
 import org.scalatest.{Matchers, WordSpec}
 
@@ -34,7 +36,7 @@ class GraphTest extends WordSpec with Matchers {
           23 -> 145
         ),
         "",
-        ChartTimeUnit.HourOfDay
+        HourOfDay
       )
     }
   }

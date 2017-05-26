@@ -1,27 +1,27 @@
-package com.example
+package bezh.tweets
 
-import java.lang.Math.{abs, min}
+import java.lang.Math.{ abs, min }
 import java.net.URL
 import java.time.DayOfWeek
 
 import com.danielasfregola.twitter4s.TwitterRestClient
-import com.danielasfregola.twitter4s.entities.{Tweet, User, UserMention}
-import com.example.Config.defaultLimit
+import com.danielasfregola.twitter4s.entities.{ Tweet, User, UserMention }
+import Config.defaultLimit
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 
 case class Config(
-    tweetsLimit: Int = defaultLimit,
-    screenName: String = "",
-    showHelp: Boolean = false,
-    tzAutoAdjustment: Boolean = true,
-    friendsAnalysis: Boolean = false,
-    utcOffset: Option[Long] = None
+  tweetsLimit: Int = defaultLimit,
+  screenName: String = "",
+  showHelp: Boolean = false,
+  tzAutoAdjustment: Boolean = true,
+  friendsAnalysis: Boolean = false,
+  utcOffset: Option[Long] = None
 )
 object Config {
   val defaultLimit = 1000
@@ -44,11 +44,11 @@ object Config {
 object Functions {
 
   def getTweets(
-      name: String,
-      tweetsNumAtLeast: Int,
-      client: TwitterRestClient,
-      maxId: Option[Long] = None,
-      acc: Seq[Tweet] = Nil
+    name: String,
+    tweetsNumAtLeast: Int,
+    client: TwitterRestClient,
+    maxId: Option[Long] = None,
+    acc: Seq[Tweet] = Nil
   ): Future[Seq[Tweet]] = {
     if (acc.size < tweetsNumAtLeast) {
       val limit = min(200, abs(tweetsNumAtLeast - acc.size))
@@ -88,13 +88,15 @@ object Functions {
       println(s"[+] Retrieving last $tweetsNum tweets...")
       val tweetsFuture = getTweets(cfg.screenName, tweetsNum, restClient)
       tweetsFuture.map { tweets =>
-        val lastCreatedAt  = new DateTime(tweets.last.created_at.getTime)
+        val lastCreatedAt = new DateTime(tweets.last.created_at.getTime)
         val firstCreatedAt = new DateTime(tweets.head.created_at.getTime)
-        val format         = DateTimeFormat.shortDateTime()
+        val format = DateTimeFormat.shortDateTime()
         println(
-          s"[+] Downloaded ${tweets.size} tweets from ${lastCreatedAt.toString(
-            format
-          )} to ${firstCreatedAt.toString(format)}"
+          s"[+] Downloaded ${tweets.size} tweets from ${
+            lastCreatedAt.toString(
+              format
+            )
+          } to ${firstCreatedAt.toString(format)}"
         )
         (user, tweets)
       }
@@ -103,11 +105,11 @@ object Functions {
     cfg.utcOffset.foreach(offset =>
       println(s"Applying timezone offset $offset"))
 
-    var retweetedUsers   = Vector.empty[User]
-    var mentionedUsers   = Vector.empty[UserMention]
+    var retweetedUsers = Vector.empty[User]
+    var mentionedUsers = Vector.empty[UserMention]
     var mentionedDomains = Vector.empty[String]
-    var hoursOfDay       = Map.empty[Int, Int]
-    var daysOfWeek       = Map.empty[Int, Int]
+    var hoursOfDay = Map.empty[Int, Int]
+    var daysOfWeek = Map.empty[Int, Int]
 
     val (_, tweets) = Await.result(future, 1.minute)
 
@@ -131,10 +133,10 @@ object Functions {
       }
       mentionedDomains ++= domains
 
-      val dateTime  = new DateTime(tweet.created_at.getTime)
-      val hour      = dateTime.getHourOfDay
+      val dateTime = new DateTime(tweet.created_at.getTime)
+      val hour = dateTime.getHourOfDay
       val dayOfWeek = dateTime.dayOfWeek().get()
-      hoursOfDay += (hour      -> (hoursOfDay.getOrElse(hour, 0) + 1))
+      hoursOfDay += (hour -> (hoursOfDay.getOrElse(hour, 0) + 1))
       daysOfWeek += (dayOfWeek -> (daysOfWeek.getOrElse(dayOfWeek, 0) + 1))
     }
 
@@ -206,15 +208,15 @@ object Functions {
   }
 
   def printCharts(
-      data: Map[Int, Int],
-      title: String,
-      timeUnit: ChartTimeUnit
+    data: Map[Int, Int],
+    title: String,
+    timeUnit: ChartTimeUnit
   ): Unit = {
-    val sorted    = data.toList.sorted
-    val mean      = getMean(data.values.toSeq)
-    val median    = getMedian(data.values.toSeq)
+    val sorted = data.toList.sorted
+    val mean = getMean(data.values.toSeq)
+    val median = getMedian(data.values.toSeq)
     val lineWidth = 50
-    val lineMean  = getMean(1 to lineWidth)
+    val lineMean = getMean(1 to lineWidth)
 
     println(title)
     println((1 to lineWidth).map(_ => "#").mkString)
