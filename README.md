@@ -1,7 +1,11 @@
 # scala-tweets-analyzer
 Simple scala script to analyze tweets activity for a given user.
 
-Written in plain scala using [Twitter4s](https://github.com/DanielaSfregola/twitter4s).
+Written in scala using [Twitter4s](https://github.com/DanielaSfregola/twitter4s).
+
+### Example output
+
+![Example output](https://github.com/OleksandrBezhan/scala-tweets-analyzer/blob/master/example-output.png)
 
 ```bash
 Usage: tweets-analyzer [options]
